@@ -10,10 +10,11 @@ gimb_z = 0.0
 direction = 0.0
 sight = False
 
-Interval = 5
-Detection = [True] * Interval
+Interval = 3
+Detection = [False] * Interval
 detect_i = 0
 track_on = False
+topos = False
 
 def record_sight(msg):
     global sight
@@ -31,12 +32,18 @@ def recordTF(msg):
         direction = -1.0
 
 
+def record_topos(msg):
+    global topos
+    topos = msg.data
+
+
 if __name__ == "__main__":
     rospy.init_node("track_gimbal")
     pub_vel = rospy.Publisher("/cmd_vel", Twist, queue_size=100)
     pub_track = rospy.Publisher("/track_on", Bool, queue_size=100)
     sub_sight = rospy.Subscriber("/armor_in_sight", Bool, record_sight, queue_size=100)
     sub_tf = rospy.Subscriber("/tf", TFMessage, recordTF, queue_size=100)
+    sub_topos = rospy.Subscriber("/to_position", Bool, record_topos, queue_size=100)
 
     deltaTime = 0.1
     msg = Twist()
@@ -46,12 +53,14 @@ if __name__ == "__main__":
 
     rate = rospy.Rate(1/deltaTime)
 
+    while (not rospy.is_shutdown()) and topos == False:
+        rate.sleep()
+
     while not rospy.is_shutdown():
         if sight is True:
             track_on = True
             pub_track.publish(track_on)
-            rate.sleep()
-            msg.angular.z = direction * math.sqrt(direction * gimb_z) * 3
+            msg.angular.z = direction * math.sqrt(direction * gimb_z) * 2.5
             pub_vel.publish(msg)
             Detection = [True] * Interval
             detect_i = 0
@@ -60,8 +69,8 @@ if __name__ == "__main__":
             detect_i += 1
             if detect_i >= Interval:
                 detect_i = 0
-            rate.sleep()
-        if set(Detection) == [False]:
+        if set(Detection) == {False}:
             track_on = False
         pub_track.publish(track_on)
+        rate.sleep()
 

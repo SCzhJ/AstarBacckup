@@ -12,6 +12,7 @@ sight = False
 prev_sight = False
 gimb_dir = 1
 track_on = True
+topos = False
 
 
 def record_sight(msg):
@@ -33,14 +34,19 @@ def record_track(msg):
     global track_on
     track_on = msg.data
 
+def record_topos(msg):
+    global topos
+    topos = msg.data
+
 
 if __name__ == "__main__":
 
     rospy.init_node("rotation_p")
     pub_ch = rospy.Publisher("/cmd_vel", Twist, queue_size=100)
     pub_gi = rospy.Publisher("/cmd_gimbal_angle", GimbalAngle, queue_size=100)
-    sub_sight = rospy.Subscriber("/armor_in_sight", Bool, record_sight, queue_size=100)
+    #sub_sight = rospy.Subscriber("/armor_in_sight", Bool, record_sight, queue_size=100)
     sub_track = rospy.Subscriber("/track_on", Bool, record_track, queue_size=100)
+    sub_topos = rospy.Subscriber("/to_position", Bool, record_topos, queue_size=100)
 
     sub_tf = rospy.Subscriber("/tf", TFMessage, record_tf, queue_size=100)
 
@@ -54,8 +60,11 @@ if __name__ == "__main__":
 
     msg = Twist()
     msg.angular.z = Speed * Direction
-    msg_gimbal = GimbalAngle()
-    msg_gimbal.yaw_angle = 0.0
+    #msg_gimbal = GimbalAngle()
+    #msg_gimbal.yaw_angle = 0.0
+
+    while (not rospy.is_shutdown()) and topos == False:
+        rate.sleep()
 
     while not rospy.is_shutdown():
         if track_on is False:
