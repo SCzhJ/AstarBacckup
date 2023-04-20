@@ -1,0 +1,74 @@
+#!/usr/bin/env python
+
+import rospy
+import math
+import random
+from geometry_msgs.msg import Twist
+from roborts_msgs.msg import GimbalAngle
+from tf2_msgs.msg import TFMessage
+from std_msgs.msg import Bool
+
+sight = False
+prev_sight = False
+gimb_dir = 1
+track_on = True
+
+
+def record_sight(msg):
+    global sight
+    global prev_sight
+    prev_sight = sight
+    sight = msg.data
+
+
+def record_tf(msg):
+    global gimb_dir
+    if msg.transforms[0].child_frame_id == "gimbal":
+        if msg.transforms[0].transform.rotation.z > 0:
+            gimb_dir = 1
+        else:
+            gimb_dir = -1
+
+def record_track(msg):
+    global track_on
+    track_on = msg.data
+
+
+if __name__ == "__main__":
+
+    rospy.init_node("rotation_p")
+    pub_ch = rospy.Publisher("/cmd_vel", Twist, queue_size=100)
+    pub_gi = rospy.Publisher("/cmd_gimbal_angle", GimbalAngle, queue_size=100)
+    sub_sight = rospy.Subscriber("/armor_in_sight", Bool, record_sight, queue_size=100)
+    sub_track = rospy.Subscriber("/track_on", Bool, record_track, queue_size=100)
+
+    sub_tf = rospy.Subscriber("/tf", TFMessage, record_tf, queue_size=100)
+
+    Period = 0.05
+    rate = rospy.Rate(1/Period)
+    Speeds = [1.0, 2.0, 3.0, 3.5, 4.0]
+    Speed = Speeds[2]
+    RotationPeriod = 0.5
+    RotationCountdown = RotationPeriod
+    Direction = -1.0
+
+    msg = Twist()
+    msg.angular.z = Speed * Direction
+    msg_gimbal = GimbalAngle()
+    msg_gimbal.yaw_angle = 0.0
+
+    while not rospy.is_shutdown():
+        if track_on is False:
+            if RotationCountdown <= 0.0:
+                if random.random() < 0.9:
+                    if prev_sight != sight:
+                        Direction = -gimb_dir
+                    elif random.random() < 0.5:
+                        Direction = -Direction
+                    Speed = random.choice(Speeds)
+                    msg.angular.z = Speed * Direction * 0.7
+                RotationCountdown = RotationPeriod + random.random() * Speed * 0.5
+            RotationCountdown -= Period
+            pub_ch.publish(msg)
+
+        rate.sleep()
